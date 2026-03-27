@@ -1,0 +1,18 @@
+tenant_name: lh-vansleep
+env: dev 
+
+dev:
+  region: us-east-1
+  rds_size: db.t3.micro
+  tags:
+    environment: dev
+    managed_by: github-actions
+    team: platform
+
+prod:
+  region: us-east-2
+  rds_size: db.t3.medium
+  tags:
+    environment: prod
+    managed_by: github-actions
+    team: platform
