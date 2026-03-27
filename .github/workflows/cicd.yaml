@@ -1,7 +1,5 @@
 name: Create Infra and repo
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
