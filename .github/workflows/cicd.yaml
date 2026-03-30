@@ -74,14 +74,73 @@ jobs:
     
   
   create_repo:
-    runs-on: ubuntu-latest
-    needs: [provision_dev, provision_prod]
-    if: >-
-      always() &&
-      (needs.provision_dev.result == 'success' || needs.provision_dev.result == 'skipped') &&
-      (needs.provision_prod.result == 'success' || needs.provision_prod.result == 'skipped') &&
-      (needs.provision_dev.result == 'success' || needs.provision_prod.result == 'success')
-    steps:
-        - name: Checkout code
-          uses: actions/checkout@v3
+      runs-on: ubuntu-latest
+      needs: [load_config, provision_dev, provision_prod]
+      if: >-
+        always() &&
+        (needs.provision_dev.result == 'success' || needs.provision_dev.result == 'skipped') &&
+        (needs.provision_prod.result == 'success' || needs.provision_prod.result == 'skipped') &&
+        (needs.provision_dev.result == 'success' || needs.provision_prod.result == 'success')
+      steps:
+        - name: Create frontend/backend repos + bootstrap deploy workflow
+          uses: actions/github-script@v7
+          with:
+            github-token: ${{ secrets.REPO_ADMIN_PAT }}
+            script: |
+              const owner = context.repo.owner;
+              const tenant = "${{ needs.load_config.outputs.tenant_name }}";
+              const apps = ["frontend", "backend"];
+
+              for (const app of apps) {
+                const repo = `${tenant}-${app}`;
+
+                // Create repo if missing
+                let exists = true;
+                try {
+                  await github.rest.repos.get({ owner, repo });
+                } catch (e) {
+                  if (e.status === 404) exists = false;
+                  else throw e;
+                }
+
+                if (!exists) {
+                  await github.rest.repos.createForAuthenticatedUser({
+                    name: repo,
+                    private: true,
+                    auto_init: true
+                  });
+                }
+
+                const deployYaml = [
+                  "name: App Deploy (Caller)",
+                  "on:",
+                  "  workflow_dispatch:",
+                  "    inputs:",
+                  "      environment:",
+                  "        description: dev or prod",
+                  "        required: true",
+                  "        type: choice",
+                  "        options: [dev, prod]",
+                  "jobs:",
+                  "  deploy:",
+                  "    uses: adarshl02/central-helm-deploy/.github/workflows/deploy.yaml@main",
+                  "    with:",
+                  `      tenant_name: ${tenant}`,
+                  `      app_name: ${app}`,
+                  "      environment: \\${{ inputs.environment }}",
+                  "    secrets: inherit"
+                ].join("\n");
+
+                const content = Buffer.from(deployYaml).toString("base64");
+
+                await github.rest.repos.createOrUpdateFileContents({
+                  owner,
+                  repo,
+                  path: ".github/workflows/deploy.yaml",
+                  message: "chore: bootstrap app deploy caller workflow",
+                  content,
+                  branch: "main"
+                });
+              }
+             
     
