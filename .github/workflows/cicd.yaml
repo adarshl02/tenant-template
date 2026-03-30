@@ -41,7 +41,7 @@ jobs:
   provision_dev:
     needs: load_config
     if: needs.load_config.outputs.provision_dev == 'true'
-    uses: adarshl02/reusable-workflow-linear-infra/.github/workflows/terraform.yml@linear-infra
+    uses: <username>/reusable-workflow-linear-infra/.github/workflows/terraform.yml@linear-infra
     with:
       tenant_name: ${{ needs.load_config.outputs.tenant_name }}
       action: ${{ needs.load_config.outputs.provision_dev_action }}
@@ -58,7 +58,7 @@ jobs:
   provision_prod:
     needs: load_config
     if: needs.load_config.outputs.provision_prod == 'true'
-    uses: adarshl02/reusable-workflow-linear-infra/.github/workflows/terraform.yml@linear-infra
+    uses: <username>/reusable-workflow-linear-infra/.github/workflows/terraform.yml@linear-infra
     with:
       tenant_name: ${{ needs.load_config.outputs.tenant_name }}
       action: ${{ needs.load_config.outputs.provision_prod_action }}
@@ -123,7 +123,7 @@ jobs:
                   "        options: [dev, prod]",
                   "jobs:",
                   "  deploy:",
-                  "    uses: adarshl02/central-helm-deploy/.github/workflows/deploy.yaml@main",
+                  "    uses: <username>/central-helm-deploy/.github/workflows/deploy.yaml@main",
                   "    with:",
                   `      tenant_name: ${tenant}`,
                   `      app_name: ${app}`,
