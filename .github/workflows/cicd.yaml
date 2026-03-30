@@ -3,28 +3,84 @@ on:
   workflow_dispatch:
 
 jobs:
-  provision_dev:
+  load_config:
     runs-on: ubuntu-latest
+    outputs:
+      tenant_name: ${{ steps.parse.outputs.tenant_name }}
+      provision_dev: ${{ steps.parse.outputs.provision_dev }}
+      provision_prod: ${{ steps.parse.outputs.provision_prod }}
+      provision_dev_action: ${{ steps.parse.outputs.provision_dev_action }}
+      provision_prod_action: ${{ steps.parse.outputs.provision_prod_action }}
+      dev_yaml: ${{ steps.parse.outputs.dev_yaml }}
+      prod_yaml: ${{ steps.parse.outputs.prod_yaml }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
+      - name: Parse infra.yaml
+        id: parse
+        uses: mikefarah/yq@v4.44.3
+        with:
+          cmd: |
+            echo "tenant_name=$(yq e '.tenant_name' infra.yaml)" >> "$GITHUB_OUTPUT"
+            echo "provision_dev=$(yq e '.provision_dev' infra.yaml)" >> "$GITHUB_OUTPUT"
+            echo "provision_prod=$(yq e '.provision_prod' infra.yaml)" >> "$GITHUB_OUTPUT"
+            echo "provision_dev_action=$(yq e '.provision_dev_action // \"apply\"' infra.yaml)" >> "$GITHUB_OUTPUT"
+            echo "provision_prod_action=$(yq e '.provision_prod_action // \"apply\"' infra.yaml)" >> "$GITHUB_OUTPUT"
+            {
+              echo "dev_yaml<<EOF"
+              yq e '.dev' infra.yaml | sed 's/^/  /'
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            {
+              echo "prod_yaml<<EOF"
+              yq e '.prod' infra.yaml | sed 's/^/  /'
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+
+  provision_dev:
+    needs: load_config
+    if: needs.load_config.outputs.provision_dev == 'true'
+    uses: adarshl02/reusable-workflow-linear-infra/.github/workflows/terraform.yml@linear-infra
+    with:
+      tenant_name: ${{ needs.load_config.outputs.tenant_name }}
+      action: ${{ needs.load_config.outputs.provision_dev_action }}
+      environment: "dev"
+      config_yaml: |
+        dev:
+        ${{ needs.load_config.outputs.dev_yaml }}
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET_DEV }}
+      PAT_TOKEN: ${{ secrets.REUSABLE_WORKFLOW_PAT_TOKEN }}
 
   provision_prod:
-    runs-on: ubuntu-latest
-    needs: provision_dev
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
+    needs: load_config
+    if: needs.load_config.outputs.provision_prod == 'true'
+    uses: adarshl02/reusable-workflow-linear-infra/.github/workflows/terraform.yml@linear-infra
+    with:
+      tenant_name: ${{ needs.load_config.outputs.tenant_name }}
+      action: ${{ needs.load_config.outputs.provision_prod_action }}
+      environment: "prod"
+      config_yaml: |
+        prod:
+        ${{ needs.load_config.outputs.prod_yaml }}
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      PAT_TOKEN: ${{ secrets.REUSABLE_WORKFLOW_PAT_TOKEN }}
+    
   
   create_repo:
     runs-on: ubuntu-latest
-    needs: provision_prod
+    needs:
+      - provision_dev
+      - provision_prod
+    if: always() && (needs.provision_dev.result == 'success' || needs.provision_prod.result == 'success')
     steps:
         - name: Checkout code
           uses: actions/checkout@v3

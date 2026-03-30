@@ -1,6 +1,12 @@
 tenant_name: lh-vansleep
 env: dev 
 
+provision_dev: true
+provision_dev_action: apply
+
+provision_prod: true
+provision_prod_action: apply
+
 dev:
   region: us-east-1
   rds_size: db.t3.micro
