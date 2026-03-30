@@ -91,10 +91,12 @@ jobs:
               const tenant = "${{ needs.load_config.outputs.tenant_name }}";
               const apps = ["frontend", "backend"];
 
+              // Helper to wait for GitHub to finish repo initialization (auto_init)
+              const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
               for (const app of apps) {
                 const repo = `${tenant}-${app}`;
 
-                // Create repo if missing
                 let exists = true;
                 try {
                   await github.rest.repos.get({ owner, repo });
@@ -104,11 +106,15 @@ jobs:
                 }
 
                 if (!exists) {
-                  await github.rest.repos.createForAuthenticatedUser({
+                  await github.rest.repos.createInOrg({
+                    org: owner,
                     name: repo,
                     private: true,
-                    auto_init: true
+                    auto_init: true 
                   });
+                  
+             
+                  await sleep(3000);
                 }
 
                 const deployYaml = [
@@ -127,7 +133,7 @@ jobs:
                   "    with:",
                   `      tenant_name: ${tenant}`,
                   `      app_name: ${app}`,
-                  "      environment: \\${{ inputs.environment }}",
+                  "      environment: \${{ inputs.environment }}",
                   "    secrets: inherit"
                 ].join("\n");
 
@@ -142,5 +148,3 @@ jobs:
                   branch: "main"
                 });
               }
-             
-    
