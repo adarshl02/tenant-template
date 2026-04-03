@@ -6,8 +6,10 @@ provision_prod: false
 provision_prod_action: apply
 
 dev: 
+  tenant_name: lh-vansleep
   region: us-east-1
-  eks_cluster_name: linear-infra-eks-dev
+  environment: dev
+  eks_cluster_name: linear-infra-eks
   resources:
     s3:
       bucket_name: lh-vansleep-dev-bucket
@@ -26,6 +28,9 @@ dev:
       service_account_name: tenant-sa
 
 prod:
+  region: us-east-2
+  environment: prod
+  eks_cluster_name: linear-infra-eks-prod
   resources:
     s3:
       bucket_name: lh-vansleep-prod-bucket
