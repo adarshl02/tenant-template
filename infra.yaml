@@ -23,7 +23,7 @@ dev:
       db_password: ChangeMe123!
       db_instance_class: db.t3.micro
       db_engine: mysql
-      db_engine_version: 8.0
+      db_engine_version: "8.0"
       allocated_storage: 20
     cognito:
       user_pool_name: lh-vansleep-user-pool
@@ -48,7 +48,7 @@ prod:
       db_password: ChangeMe123!
       db_instance_class: db.t3.large
       db_engine: mysql
-      db_engine_version: 8.0
+      db_engine_version: "8.0"
       allocated_storage: 20
     cognito:
       user_pool_name: lh-vansleep-user-pool
