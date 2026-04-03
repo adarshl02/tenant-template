@@ -1,7 +1,7 @@
 tenant_name: lh-vansleep
 
 provision_dev: true
-provision_dev_action: destroy
+provision_dev_action: apply
 provision_prod: false
 provision_prod_action: apply
 
