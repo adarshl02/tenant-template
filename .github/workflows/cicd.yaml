@@ -27,16 +27,16 @@ jobs:
             echo "tenant_name=$(yq e '.tenant_name' infra.yaml)" >> "$GITHUB_OUTPUT"
             echo "provision_dev=$(yq e '.provision_dev' infra.yaml)" >> "$GITHUB_OUTPUT"
             echo "provision_prod=$(yq e '.provision_prod' infra.yaml)" >> "$GITHUB_OUTPUT"
-            echo "provision_dev_action=$(yq e '.provision_dev_action // \"apply\"' infra.yaml)" >> "$GITHUB_OUTPUT"
-            echo "provision_prod_action=$(yq e '.provision_prod_action // \"apply\"' infra.yaml)" >> "$GITHUB_OUTPUT"
+            echo "provision_dev_action=$(yq e '.provision_dev_action' infra.yaml)" >> "$GITHUB_OUTPUT"
+            echo "provision_prod_action=$(yq e '.provision_prod_action' infra.yaml)" >> "$GITHUB_OUTPUT"
             {
               echo "dev_yaml<<EOF"
-              yq e '.dev' infra.yaml | sed 's/^/  /'
+              yq e '.dev' infra.yaml
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
             {
               echo "prod_yaml<<EOF"
-              yq e '.prod' infra.yaml | sed 's/^/  /'
+              yq e '.prod' infra.yaml
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
 
@@ -63,7 +63,7 @@ jobs:
       tenant_name: ${{ needs.load_config.outputs.tenant_name }}
       action: ${{ needs.load_config.outputs.provision_prod_action }}
       environment: "prod"
-      config_yaml: ${{ needs.load_config.outputs.dev_yaml }}
+      config_yaml: ${{ needs.load_config.outputs.prod_yaml }}
     secrets:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
