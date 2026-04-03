@@ -42,3 +42,6 @@ prod:
       client_name: lh-vansleep-client
     iam:
       service_account_name: tenant-sa
+
+
+# Additional tenant-specific configuration can be added here as needed
