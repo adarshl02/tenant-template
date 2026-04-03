@@ -43,7 +43,7 @@ jobs:
   provision_dev:
     needs: load_config
     if: needs.load_config.outputs.provision_dev == 'true'
-    uses: adarshl02/reusable-workflow-linear-infra/.github/workflows/terraform.yml@linear-infra
+    uses: adarshl02/reusable-workflow-linear-infra/.github/workflows/terraform.yml@main
     with:
       tenant_name: ${{ needs.load_config.outputs.tenant_name }}
       action: ${{ needs.load_config.outputs.provision_dev_action }}
@@ -58,7 +58,7 @@ jobs:
   provision_prod:
     needs: load_config
     if: needs.load_config.outputs.provision_prod == 'true'
-    uses: adarshl02/reusable-workflow-linear-infra/.github/workflows/terraform.yml@linear-infra
+    uses: adarshl02/reusable-workflow-linear-infra/.github/workflows/terraform.yml@main
     with:
       tenant_name: ${{ needs.load_config.outputs.tenant_name }}
       action: ${{ needs.load_config.outputs.provision_prod_action }}

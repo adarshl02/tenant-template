@@ -56,5 +56,3 @@ prod:
     iam:
       service_account_name: tenant-sa
 
-
-# Additional tenant-specific configuration can be added 
