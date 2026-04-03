@@ -1,24 +1,44 @@
 tenant_name: lh-vansleep
-env: dev 
 
 provision_dev: true
 provision_dev_action: apply
-
-provision_prod: true
+provision_prod: false
 provision_prod_action: apply
 
-dev:
+dev: 
   region: us-east-1
-  rds_size: db.t3.micro
-  tags:
-    environment: dev
-    managed_by: github-actions
-    team: platform
+  eks_cluster_name: linear-infra-eks-dev
+  resources:
+    s3:
+      bucket_name: lh-vansleep-dev-bucket
+    sqs:
+      queue_name: lh-vansleep-dev-queue
+    sns:
+      topic_name: lh-vansleep-dev-topic
+    rds:
+      db_name: appdb
+      db_username: admin
+      db_password: ChangeMe123!
+    cognito:
+      user_pool_name: lh-vansleep-user-pool
+      client_name: lh-vansleep-client
+    iam:
+      service_account_name: tenant-sa
 
 prod:
-  region: us-east-2
-  rds_size: db.t3.medium
-  tags:
-    environment: prod
-    managed_by: github-actions
-    team: platform
+  resources:
+    s3:
+      bucket_name: lh-vansleep-prod-bucket
+    sqs:
+      queue_name: lh-vansleep-prod-queue
+    sns:
+      topic_name: lh-vansleep-prod-topic
+    rds:
+      db_name: appdb
+      db_username: admin
+      db_password: ChangeMe123!
+    cognito:
+      user_pool_name: lh-vansleep-user-pool
+      client_name: lh-vansleep-client
+    iam:
+      service_account_name: tenant-sa
