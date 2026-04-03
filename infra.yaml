@@ -18,7 +18,7 @@ dev:
     sns:
       topic_name: lh-vansleep-dev-topic
     rds:
-      db_name: appdb-dev
+      db_name: appdbdev
       db_username: admin
       db_password: ChangeMe123!
       db_instance_class: db.t3.micro
@@ -43,7 +43,7 @@ prod:
     sns:
       topic_name: lh-vansleep-prod-topic
     rds:
-      db_name: appdb-prod
+      db_name: appdbprod
       db_username: admin
       db_password: ChangeMe123!
       db_instance_class: db.t3.large
