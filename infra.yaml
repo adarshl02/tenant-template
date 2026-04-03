@@ -1,7 +1,7 @@
 tenant_name: lh-vansleep
 
 provision_dev: true
-provision_dev_action: apply
+provision_dev_action: destroy
 provision_prod: false
 provision_prod_action: apply
 
@@ -18,9 +18,13 @@ dev:
     sns:
       topic_name: lh-vansleep-dev-topic
     rds:
-      db_name: appdb
+      db_name: appdb-dev
       db_username: admin
       db_password: ChangeMe123!
+      db_instance_class: db.t3.micro
+      db_engine: mysql
+      db_engine_version: 8.0
+      allocated_storage: 20
     cognito:
       user_pool_name: lh-vansleep-user-pool
       client_name: lh-vansleep-client
@@ -39,9 +43,13 @@ prod:
     sns:
       topic_name: lh-vansleep-prod-topic
     rds:
-      db_name: appdb
+      db_name: appdb-prod
       db_username: admin
       db_password: ChangeMe123!
+      db_instance_class: db.t3.large
+      db_engine: mysql
+      db_engine_version: 8.0
+      allocated_storage: 20
     cognito:
       user_pool_name: lh-vansleep-user-pool
       client_name: lh-vansleep-client
