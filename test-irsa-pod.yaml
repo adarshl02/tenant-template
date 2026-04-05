@@ -4,91 +4,167 @@ metadata:
   name: irsa-connectivity-check
   namespace: test-other
 spec:
-  serviceAccountName: default
+  serviceAccountName: default # ⚠️ replace with IRSA SA in real use
   restartPolicy: Never
+
   containers:
     - name: awscli
       image: public.ecr.aws/aws-cli/aws-cli:latest
-      env:
-      - name: REGION
-        value: "us-east-1"
-      - name: SECRET_ARN
-        value: "arn:aws:secretsmanager:us-east-1:430118821364:secret:test-tenant-dev-secret-kdjKdC"
       imagePullPolicy: Always
+
+      env:
+        - name: REGION
+          value: "us-east-1"
+        - name: SECRET_ARN
+          value: "arn:aws:secretsmanager:us-east-1:430118821364:secret:test-tenant-dev-secret-kdjKdC"
+
       command: ["/bin/sh", "-c"]
+
       args:
-        - | 
+        - |
           set -e
 
-          echo "== Installing dependencies =="
-          yum install -y jq >/dev/null 2>&1
+          echo "=============================="
+          echo "🔧 Installing dependencies"
+          echo "=============================="
+          yum install -y jq mysql >/dev/null 2>&1 || true
 
-          echo "== Caller identity =="
-          aws sts get-caller-identity 
+          echo ""
+          echo "=============================="
+          echo "🔐 Caller Identity"
+          echo "=============================="
+          aws sts get-caller-identity
 
-          echo "== Fetching tenant secret =="
+          echo ""
+          echo "=============================="
+          echo "🔑 Fetching Secret"
+          echo "=============================="
 
-          # Workaround for envsubst: dump secret to a file 
-          # and use $(cat ...) and $(printenv ...) so envsubst ignores it
           aws secretsmanager get-secret-value \
-            --secret-id $(printenv SECRET_ARN) \
-            --region $(printenv REGION) \
+            --secret-id "$SECRET_ARN" \
+            --region "$REGION" \
             --query SecretString \
-            --output text 2>/dev/null > /tmp/secret.json || echo "" > /tmp/secret.json
+            --output text \
+            > /tmp/secret.json 2>/dev/null || echo "" > /tmp/secret.json
 
           if [ ! -s /tmp/secret.json ]; then
-            echo "Failed to fetch secret"
+            echo "❌ Failed to fetch secret"
             exit 1
           fi
 
-          echo "Secret fetched successfully"
+          echo "✅ Secret fetched successfully"
 
-          # ---------------- S3 ----------------
-          if [ "$(jq -r '.s3.bucket_name // empty' /tmp/secret.json)" != "" ]; then
-            echo "Testing S3: $(jq -r '.s3.bucket_name' /tmp/secret.json)"
-            aws s3 ls s3://$(jq -r '.s3.bucket_name' /tmp/secret.json) --region $(printenv REGION) \
-              && echo "✅ S3 OK" || echo "❌ S3 failed"
+          ########################################
+          # S3 CHECK
+          ########################################
+          S3_BUCKET=$(jq -r '.s3.bucket_name // empty' /tmp/secret.json)
+
+          if [ -n "$S3_BUCKET" ]; then
+            echo ""
+            echo "🪣 Testing S3: $S3_BUCKET"
+
+            if aws s3 ls "s3://$S3_BUCKET" --region "$REGION"; then
+              echo "✅ S3 OK"
+            else
+              echo "❌ S3 failed"
+            fi
           fi
 
-          # ---------------- RDS ----------------
-          DB_ID=$(jq -r '.rds.db_instance_identifier // empty' /tmp/secret.json)
+          ########################################
+          # RDS CHECK
+          ########################################
+          ENDPOINT=$(jq -r '.rds.endpoint // empty' /tmp/secret.json)
+          DB_USER=$(jq -r '.rds.username // empty' /tmp/secret.json)
+          DB_PASS=$(jq -r '.rds.password // empty' /tmp/secret.json)
 
-          if [ -n "$DB_ID" ]; then
-            echo "Testing RDS instance: $DB_ID"
+          if [ -n "$ENDPOINT" ]; then
+            echo ""
+            echo "🛢️ Testing RDS: $ENDPOINT"
 
-           
+            HOST=$(echo "$ENDPOINT" | cut -d':' -f1)
+            PORT=$(echo "$ENDPOINT" | cut -d':' -f2)
+
+            echo "➡️ Checking TCP connectivity..."
+
+            if timeout 5 bash -c "</dev/tcp/$HOST/$PORT"; then
+              echo "✅ TCP connection successful"
+            else
+              echo "❌ TCP connection failed"
+              exit 1
+            fi
+
+            if [ -n "$DB_PASS" ]; then
+              echo "➡️ Checking MySQL authentication..."
+
+              if mysql -h "$HOST" -P "$PORT" -u "$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; then
+                echo "✅ MySQL login successful"
+              else
+                echo "❌ MySQL login failed"
+                exit 1
+              fi
+            else
+              echo "⚠️ Skipping DB auth check (no password)"
+            fi
           fi
 
-          # ---------------- SQS ----------------
-          if [ "$(jq -r '.sqs.queue_url // empty' /tmp/secret.json)" != "" ]; then
-            echo "Testing SQS: $(jq -r '.sqs.queue_url' /tmp/secret.json)"
-            aws sqs get-queue-attributes \
-              --queue-url $(jq -r '.sqs.queue_url' /tmp/secret.json) \
+          ########################################
+          # SQS CHECK
+          ########################################
+          SQS_URL=$(jq -r '.sqs.queue_url // empty' /tmp/secret.json)
+
+          if [ -n "$SQS_URL" ]; then
+            echo ""
+            echo "📬 Testing SQS: $SQS_URL"
+
+            if aws sqs get-queue-attributes \
+              --queue-url "$SQS_URL" \
               --attribute-names All \
-              --region $(printenv REGION) \
-              && echo "✅ SQS OK" || echo "❌ SQS failed"
+              --region "$REGION"; then
+              echo "✅ SQS OK"
+            else
+              echo "❌ SQS failed"
+            fi
           fi
 
-          # ---------------- SNS ----------------
-          if [ "$(jq -r '.sns.topic_arn // empty' /tmp/secret.json)" != "" ]; then
-            echo "Testing SNS: $(jq -r '.sns.topic_arn' /tmp/secret.json)"
-            aws sns get-topic-attributes \
-              --topic-arn $(jq -r '.sns.topic_arn' /tmp/secret.json) \
-              --region $(printenv REGION) \
-              && echo "✅ SNS OK" || echo "❌ SNS failed"
+          ########################################
+          # SNS CHECK
+          ########################################
+          SNS_ARN=$(jq -r '.sns.topic_arn // empty' /tmp/secret.json)
+
+          if [ -n "$SNS_ARN" ]; then
+            echo ""
+            echo "📢 Testing SNS: $SNS_ARN"
+
+            if aws sns get-topic-attributes \
+              --topic-arn "$SNS_ARN" \
+              --region "$REGION"; then
+              echo "✅ SNS OK"
+            else
+              echo "❌ SNS failed"
+            fi
           fi
 
-          # ---------------- Cognito ----------------
-          if [ "$(jq -r '.cognito.user_pool_id // empty' /tmp/secret.json)" != "" ]; then
-            echo "Testing Cognito User Pool: $(jq -r '.cognito.user_pool_id' /tmp/secret.json)"
-            aws cognito-idp describe-user-pool \
-              --user-pool-id $(jq -r '.cognito.user_pool_id' /tmp/secret.json) \
-              --region $(printenv REGION) \
-              >/dev/null \
-              && echo "✅ Cognito OK" || echo "❌ Cognito failed"
+          ########################################
+          # COGNITO CHECK
+          ########################################
+          USER_POOL_ID=$(jq -r '.cognito.user_pool_id // empty' /tmp/secret.json)
+
+          if [ -n "$USER_POOL_ID" ]; then
+            echo ""
+            echo "👤 Testing Cognito User Pool: $USER_POOL_ID"
+
+            if aws cognito-idp describe-user-pool \
+              --user-pool-id "$USER_POOL_ID" \
+              --region "$REGION" >/dev/null; then
+              echo "✅ Cognito OK"
+            else
+              echo "❌ Cognito failed"
+            fi
           fi
 
+          echo ""
           echo "========================================"
-          echo "✅ Connectivity check completed"
+          echo "✅ All connectivity checks completed"
+          echo "========================================"
 
           sleep 300
