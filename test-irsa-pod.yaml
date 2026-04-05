@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: irsa-connectivity-check
+  namespace: test-other
+spec:
+  serviceAccountName: default
+  restartPolicy: Never
+  containers:
+    - name: awscli
+      image: public.ecr.aws/aws-cli/aws-cli:latest
+      env:
+      - name: REGION
+        value: "us-east-1"
+      - name: SECRET_ARN
+        value: "arn:aws:secretsmanager:us-east-1:430118821364:secret:test-tenant-dev-secret-kdjKdC"
+      imagePullPolicy: Always
+      command: ["/bin/sh", "-c"]
+      args:
+        - | 
+          set -e
+
+          echo "== Installing dependencies =="
+          yum install -y jq >/dev/null 2>&1
+
+          echo "== Caller identity =="
+          aws sts get-caller-identity 
+
+          echo "== Fetching tenant secret =="
+
+          # Workaround for envsubst: dump secret to a file 
+          # and use $(cat ...) and $(printenv ...) so envsubst ignores it
+          aws secretsmanager get-secret-value \
+            --secret-id $(printenv SECRET_ARN) \
+            --region $(printenv REGION) \
+            --query SecretString \
+            --output text 2>/dev/null > /tmp/secret.json || echo "" > /tmp/secret.json
+
+          if [ ! -s /tmp/secret.json ]; then
+            echo "Failed to fetch secret"
+            exit 1
+          fi
+
+          echo "Secret fetched successfully"
+
+          # ---------------- S3 ----------------
+          if [ "$(jq -r '.s3.bucket_name // empty' /tmp/secret.json)" != "" ]; then
+            echo "Testing S3: $(jq -r '.s3.bucket_name' /tmp/secret.json)"
+            aws s3 ls s3://$(jq -r '.s3.bucket_name' /tmp/secret.json) --region $(printenv REGION) \
+              && echo "✅ S3 OK" || echo "❌ S3 failed"
+          fi
+
+          # ---------------- RDS ----------------
+          DB_ID=$(jq -r '.rds.db_instance_identifier // empty' /tmp/secret.json)
+
+          if [ -n "$DB_ID" ]; then
+            echo "Testing RDS instance: $DB_ID"
+
+            aws rds describe-db-instances \
+              --db-instance-identifier "$DB_ID" \
+              --region $(printenv REGION) \
+              >/dev/null \
+              && echo "✅ RDS OK" || echo "❌ RDS failed"
+          fi
+
+          # ---------------- SQS ----------------
+          if [ "$(jq -r '.sqs.queue_url // empty' /tmp/secret.json)" != "" ]; then
+            echo "Testing SQS: $(jq -r '.sqs.queue_url' /tmp/secret.json)"
+            aws sqs get-queue-attributes \
+              --queue-url $(jq -r '.sqs.queue_url' /tmp/secret.json) \
+              --attribute-names All \
+              --region $(printenv REGION) \
+              && echo "✅ SQS OK" || echo "❌ SQS failed"
+          fi
+
+          # ---------------- SNS ----------------
+          if [ "$(jq -r '.sns.topic_arn // empty' /tmp/secret.json)" != "" ]; then
+            echo "Testing SNS: $(jq -r '.sns.topic_arn' /tmp/secret.json)"
+            aws sns get-topic-attributes \
+              --topic-arn $(jq -r '.sns.topic_arn' /tmp/secret.json) \
+              --region $(printenv REGION) \
+              && echo "✅ SNS OK" || echo "❌ SNS failed"
+          fi
+
+          # ---------------- Cognito ----------------
+          if [ "$(jq -r '.cognito.user_pool_id // empty' /tmp/secret.json)" != "" ]; then
+            echo "Testing Cognito User Pool: $(jq -r '.cognito.user_pool_id' /tmp/secret.json)"
+            aws cognito-idp describe-user-pool \
+              --user-pool-id $(jq -r '.cognito.user_pool_id' /tmp/secret.json) \
+              --region $(printenv REGION) \
+              >/dev/null \
+              && echo "✅ Cognito OK" || echo "❌ Cognito failed"
+          fi
+
+          echo "========================================"
+          echo "✅ Connectivity check completed"
+
+          sleep 300

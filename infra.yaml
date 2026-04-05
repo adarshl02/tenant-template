@@ -1,7 +1,7 @@
 tenant_name: test-tenant
 
 provision_dev: true
-provision_dev_action: apply
+provision_dev_action: destroy
 provision_prod: false
 provision_prod_action: apply
 
