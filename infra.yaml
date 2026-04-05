@@ -1,22 +1,22 @@
-tenant_name: lh-vansleep
+tenant_name: test-tenant
 
 provision_dev: true
-provision_dev_action: destroy
+provision_dev_action: apply
 provision_prod: false
 provision_prod_action: apply
 
 dev: 
-  tenant_name: lh-vansleep
+  tenant_name: test-tenant
   region: us-east-1
   environment: dev
   eks_cluster_name: linear-infra-eks
   resources:
     s3:
-      bucket_name: lh-vansleep-dev-bucket
+      bucket_name: test-tenant-dev-bucket
     sqs:
-      queue_name: lh-vansleep-dev-queue
+      queue_name: test-tenant-dev-queue
     sns:
-      topic_name: lh-vansleep-dev-topic
+      topic_name: test-tenant-dev-topic
     rds:
       db_name: appdbdev
       db_username: admin
@@ -26,8 +26,8 @@ dev:
       db_engine_version: "8.0"
       allocated_storage: 20
     cognito:
-      user_pool_name: lh-vansleep-user-pool
-      client_name: lh-vansleep-client
+      user_pool_name: test-tenant-user-pool
+      client_name: test-tenant-client
     iam:
       service_account_name: tenant-sa
 
@@ -37,11 +37,11 @@ prod:
   eks_cluster_name: linear-infra-eks-prod
   resources:
     s3:
-      bucket_name: lh-vansleep-prod-bucket
+      bucket_name: test-tenant-prod-bucket
     sqs:
-      queue_name: lh-vansleep-prod-queue
+      queue_name: test-tenant-prod-queue
     sns:
-      topic_name: lh-vansleep-prod-topic
+      topic_name: test-tenant-prod-topic
     rds:
       db_name: appdbprod
       db_username: admin
@@ -51,8 +51,8 @@ prod:
       db_engine_version: "8.0"
       allocated_storage: 20
     cognito:
-      user_pool_name: lh-vansleep-user-pool
-      client_name: lh-vansleep-client
+      user_pool_name: test-tenant-user-pool
+      client_name: test-tenant-client
     iam:
       service_account_name: tenant-sa
 
